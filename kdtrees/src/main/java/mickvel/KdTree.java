@@ -1,10 +1,8 @@
 package mickvel;
 
-import java.awt.Point;
-import java.util.Stack;
-
 import edu.princeton.cs.algs4.Point2D;
 import edu.princeton.cs.algs4.RectHV;
+import edu.princeton.cs.algs4.ResizingArrayBag;
 import edu.princeton.cs.algs4.StdDraw;
 import edu.princeton.cs.algs4.StdOut;
 
@@ -133,10 +131,36 @@ public class KdTree {
         }
     }
 
-    
-
     public Iterable<Point2D> range(RectHV rect) {
-        throw new UnsupportedOperationException();
+        ResizingArrayBag<Point2D> bag = new ResizingArrayBag<>();
+        range(root, rect, bag); 
+        return bag;
+    }
+
+    private void range(Node n, RectHV rect, ResizingArrayBag<Point2D> bag) {
+        if (n == null) return;
+
+        Point2D p = n.val;
+        RectHV division = n.direction == Y 
+            ? new RectHV(p.x(), 0, p.x(), 1)
+            : new RectHV(0, p.y(), 1, p.y());
+        int comp = n.compareToKey(new Point2D(rect.xmin(), rect.ymin()));
+
+        if (rect.contains(p)) bag.add(p);
+
+        if (rect.intersects(division)) {
+            range(n.left, rect, bag);
+            range(n.right, rect, bag);
+        } 
+        else if (comp > 0) 
+            // not intersects and node key is greater than arbitrary point 
+            // in rect: only search left.
+            range(n.left, rect, bag);
+        else if (comp < 0) 
+            // not intersects and node key is lesser than arbitrary point 
+            // in rect: only search right.
+            range(n.right, rect, bag);
+        
     }
 
     public Point2D nearest(Point2D p) {
@@ -145,7 +169,7 @@ public class KdTree {
 
     public static void main(String[] args) {
         KdTree kd = new KdTree();
-
+        RectHV queryRect = new RectHV(0.1, 0.2, 0.6, 0.8);
         double[][] points = {
             {0.7, 0.2}, {0.5, 0.4}, {0.2, 0.3}, {0.4, 0.7}, {0.9, 0.6}
         };
@@ -154,6 +178,12 @@ public class KdTree {
             kd.insert(new Point2D(points[i][0], points[i][1]));
 
         kd.draw();
+        queryRect.draw();
+
+        StdDraw.setPenRadius(0.005);
+        StdDraw.setPenColor(StdDraw.WHITE);
+
+        for (Point2D p: kd.range(queryRect)) p.draw();
     }
 
 }
