@@ -6,6 +6,7 @@ import java.util.Stack;
 import edu.princeton.cs.algs4.Point2D;
 import edu.princeton.cs.algs4.RectHV;
 import edu.princeton.cs.algs4.StdDraw;
+import edu.princeton.cs.algs4.StdOut;
 
 public class KdTree {
     private Node root;     // root of the BST
@@ -28,17 +29,25 @@ public class KdTree {
         }
 
         public double key() {
-            return direction == Y ? val.y() : val.x();
+            return direction == Y ? val.x() : val.y();
         }
 
         public int compareToKey(Point2D p) {
-            double pKey = direction == X ? p.x() : p.y();
+            double pKey = direction == Y ? p.x() : p.y();
             if (key() < pKey) return -1; // this node key lesser than p
             if (key() > pKey) return 1;  // this node key greater than p
             return 0;
         }
+        
+        public String toString() {
+            String direction = this.direction ? "vertical" : "horizontal";
+            String childs = String.format(
+                    "left: %s, right: %s", 
+                    left != null ? left.val : "None",
+                    right != null ? right.val : "None");
 
-        public void draw() {
+            return String.format(
+            "Point %s, with direction %s. childs: %s", val, direction, childs);
         }
     }
     
@@ -83,33 +92,45 @@ public class KdTree {
     }
 
     public void draw() {
-        draw(root, null);
+        draw(root, 0.0, 1.0, 0.0, 1.0);
     }
 
-    private void draw(Node n, Node parent) {
+    private void draw(Node n, double xMin, double xMax, double yMin, double yMax) {
         if (n == null) return ; 
-        StdDraw.setPenRadius(0.01);
-        StdDraw.setPenColor(StdDraw.BLACK);
 
         Point2D p = n.val;
-        p.draw();
-
-        StdDraw.setPenColor(n.direction == Y ? StdDraw.RED : StdDraw.BLUE);
-
         Point2D from;
         Point2D to;
 
+        StdOut.println(n);
+
         if (n.direction == Y) {
-            double x = p.x();
-            double yFrom = parent == null ? 0 : ;
-            double yTo = parent == null ? 1;
+            from = new Point2D(p.x(), yMin);
+            to = new Point2D(p.x(), yMax);
         } else {
+            from = new Point2D(xMin, p.y());
+            to = new Point2D(xMax, p.y());
         }
+
+        StdDraw.setPenRadius(0.001);
+        StdDraw.setPenColor(n.direction == Y ? StdDraw.RED : StdDraw.BLUE);
 
         from.drawTo(to);
 
-        draw(n.left, n);
-        draw(n.right, n);
+        StdDraw.setPenRadius(0.01);
+        StdDraw.setPenColor(StdDraw.BLACK);
+
+        p.draw();
+
+        double middle = n.direction == Y ? p.x() : p.y();
+        
+        if (n.direction == Y ){
+            draw(n.left, xMin, middle, yMin, yMax);
+            draw(n.right, middle, xMax, yMin, yMax);
+        } else {
+            draw(n.left, xMin, xMax, yMin, middle);
+            draw(n.right, xMin, xMax, middle, yMax);
+        }
     }
 
     
@@ -123,6 +144,16 @@ public class KdTree {
     }
 
     public static void main(String[] args) {
+        KdTree kd = new KdTree();
+
+        double[][] points = {
+            {0.7, 0.2}, {0.5, 0.4}, {0.2, 0.3}, {0.4, 0.7}, {0.9, 0.6}
+        };
+
+        for (int i = 0; i< points.length; i++) 
+            kd.insert(new Point2D(points[i][0], points[i][1]));
+
+        kd.draw();
     }
 
 }
