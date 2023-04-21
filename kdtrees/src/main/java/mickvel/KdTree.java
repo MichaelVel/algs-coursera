@@ -4,18 +4,18 @@ import edu.princeton.cs.algs4.Point2D;
 import edu.princeton.cs.algs4.RectHV;
 import edu.princeton.cs.algs4.ResizingArrayBag;
 import edu.princeton.cs.algs4.StdDraw;
-import edu.princeton.cs.algs4.StdOut;
 
 public class KdTree {
-    private Node root;     // root of the BST
-
     private static final boolean Y = true;
     private static final boolean X = false;
 
+    private Node root;     // root of the BST
+                           //
     private class Node {
         private Point2D val;
         private RectHV nRect;
         private Node left, right;  
+        private RectHV leftR, rightR;  
         private boolean direction;
         private int size;          
 
@@ -24,6 +24,12 @@ public class KdTree {
             this.nRect = rect;
             this.size = size;
             this.direction = direction;
+            leftR = direction == Y 
+                ? new RectHV(nRect.xmin(), nRect.ymin(), val.x(), nRect.ymax())
+                : new RectHV(nRect.xmin(), nRect.ymin(), nRect.xmax(), val.y());
+            rightR = direction == Y 
+                ? new RectHV(val.x(), nRect.ymin(), nRect.xmax(), nRect.ymax())
+                : new RectHV(nRect.xmin(), val.y(), nRect.xmax(), nRect.ymax());
         }
 
         public double key() {
@@ -31,33 +37,34 @@ public class KdTree {
         }
 
         public int compareToKey(Point2D p) {
+            if (p.compareTo(val) == 0) return 0;
             double pKey = direction == Y ? p.x() : p.y();
-            if (key() < pKey) return -1; // this node key lesser than p
-            if (key() > pKey) return 1;  // this node key greater than p
-            return 0;
+            if (key() < pKey) return -1;  // this node key lesser than p
+            else return 1;                // this node key greater than p
         }
 
-        public RectHV leftRect() {
-            return direction == Y 
-                ? new RectHV(nRect.xmin(), nRect.ymin(), val.x(), nRect.ymax())
-                : new RectHV(nRect.xmin(), nRect.ymin(), nRect.xmax(), val.y());
-        }
+        public RectHV leftRect() { return leftR;}
+        public RectHV rightRect() { return rightR; }
 
-        public RectHV rightRect() {
-            return direction == Y 
-                ? new RectHV(val.x(), nRect.ymin(), nRect.xmax(), nRect.ymax())
-                : new RectHV(nRect.xmin(), val.y(), nRect.xmax(), nRect.ymax());
+        public Node[] nodes(Point2D p) {
+            if (left == null && right == null) return null;
+            if (left == null) return new Node[] {right};
+            if (right == null) return new Node[] {left};
+            
+            return leftRect().contains(p) 
+                ? new Node[] {left, right}
+                : new Node[] {right, left};
         }
         
         public String toString() {
-            String direction = this.direction ? "vertical" : "horizontal";
+            String dir = this.direction ? "vertical" : "horizontal";
             String childs = String.format(
                     "left: %s, right: %s", 
                     left != null ? left.val : "None",
                     right != null ? right.val : "None");
 
             return String.format(
-            "Point %s, with direction %s. childs: %s", val, direction, childs);
+            "Point %s, with direction %s. childs: %s", val, dir, childs);
         }
     }
     
@@ -102,12 +109,15 @@ public class KdTree {
         return x;
     }
 
-    public boolean contains(Point2D p) { return get(root,p) != null; }
+    public boolean contains(Point2D p) {
+        if (p == null) throw new IllegalArgumentException();
+        return get(root, p) != null;
+    }
 
     public void draw() { draw(root); }
 
     private void draw(Node n) {
-        if (n == null) return ; 
+        if (n == null) return; 
 
         Point2D p = n.val;
         RectHV rect = n.direction == Y
@@ -130,6 +140,7 @@ public class KdTree {
     }
 
     public Iterable<Point2D> range(RectHV rect) {
+        if (rect == null) throw new IllegalArgumentException();
         ResizingArrayBag<Point2D> bag = new ResizingArrayBag<>();
         range(root, rect, bag); 
         return bag;
@@ -139,26 +150,10 @@ public class KdTree {
         if (n == null) return;
 
         Point2D p = n.val;
-        RectHV division = n.direction == Y 
-            ? new RectHV(p.x(), 0, p.x(), 1)
-            : new RectHV(0, p.y(), 1, p.y());
-        int comp = n.compareToKey(new Point2D(rect.xmin(), rect.ymin()));
-
         if (rect.contains(p)) bag.add(p);
 
-        if (rect.intersects(division)) {
-            range(n.left, rect, bag);
-            range(n.right, rect, bag);
-        } 
-        else if (comp > 0) 
-            // not intersects and node key is greater than arbitrary point 
-            // in rect: only search left.
-            range(n.left, rect, bag);
-        else if (comp < 0) 
-            // not intersects and node key is lesser than arbitrary point 
-            // in rect: only search right.
-            range(n.right, rect, bag);
-        
+        if (rect.intersects(n.leftRect())) range(n.left, rect, bag);
+        if (rect.intersects(n.rightRect())) range(n.right, rect, bag);
     }
 
     private Point2D minPoint(Point2D p, Point2D c1, Point2D c2) {
@@ -171,29 +166,26 @@ public class KdTree {
         if (n == null) return null;
 
         Point2D champion = n.val;
+        Node[] nodes = n.nodes(p); // child nodes sorted by distance to p
 
-        boolean leftFirst = n.leftRect().contains(p);
-        Node fNode = leftFirst ? n.left : n.right;
-        Node sNode = !leftFirst ? n.left : n.right;
+        // if the node has no childrens return current champion
+        if (nodes == null) return champion;
 
-        if (fNode == null) 
-            // if the rect node that should contain query point is not in 
-            // tree, then return the nearest between champion and the 
-            // search in the complementary node.
-            return minPoint(p, champion, nearestInNode(sNode, p));
+        // if node only have one child return the nearest between then
+        // current champion and the childs champion.
+        if (nodes.length == 1) 
+            return  minPoint(p,champion,nearestInNode(nodes[0], p));
 
-        Point2D candidate = nearestInNode(fNode, p);
+        Point2D candidate = nearestInNode(nodes[0], p);
         champion = minPoint(p, champion, candidate);
-        StdOut.println(champion);
 
-        if (sNode == null || 
-            champion.distanceSquaredTo(p) < sNode.nRect.distanceSquaredTo(p))
-            // if the distance betweent the node rect to the point is 
+        if (champion.distanceSquaredTo(p) < nodes[1].nRect.distanceSquaredTo(p))
+            // if the distance between the node rect to the point is 
             // greater than the distance between the point and the champion 
-            // pruning the search.
+            // prune the search.
             return champion;
 
-        candidate = nearestInNode(sNode, p);
+        candidate = nearestInNode(nodes[1], p);
 
         return minPoint(p, champion, candidate);
     }
@@ -206,12 +198,12 @@ public class KdTree {
     public static void main(String[] args) {
         KdTree kd = new KdTree();
         RectHV queryRect = new RectHV(0.1, 0.2, 0.6, 0.8);
-        Point2D queryPoint = new Point2D(0.3,0.2);
+        Point2D queryPoint = new Point2D(0.3, 0.2);
         double[][] points = {
             {0.7, 0.2}, {0.5, 0.4}, {0.2, 0.3}, {0.4, 0.7}, {0.9, 0.6}
         };
 
-        for (int i = 0; i< points.length; i++) 
+        for (int i = 0; i < points.length; i++) 
             kd.insert(new Point2D(points[i][0], points[i][1]));
 
         kd.draw();

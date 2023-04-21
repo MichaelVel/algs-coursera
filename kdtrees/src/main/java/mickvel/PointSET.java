@@ -72,7 +72,7 @@ public class PointSET {
 
         for (int i = 0; i <= 10; i++) {
             double coord = 0.1*i;
-            assert pSet.contains(new Point2D(coord,coord));
+            assert pSet.contains(new Point2D(coord, coord));
         }
 
         assert pSet.size() == 11;
@@ -81,7 +81,7 @@ public class PointSET {
         RectHV square = new RectHV(0.0, 0.0, 0.5, 0.5);
         
         StdOut.print(pSet.nearest(p));
-        assert pSet.nearest(p).equals(new Point2D(0.5,0.5));
+        assert pSet.nearest(p).equals(new Point2D(0.5, 0.5));
         
         p.draw();
         square.draw();
